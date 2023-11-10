@@ -74,7 +74,7 @@ async function displayFileList(files) {
 
         listItem.innerHTML = `
             <div class="divmidiinfo">
-                <p class="midiname"><a href="/midi?m=${file.name}" style="color: inherit; text-decoration: none;">${formatFileName(file.name)}</a></p>
+                <p class="midiname"><a href="/developmentsite/midi?m=${file.name}" style="color: inherit; text-decoration: none;">${formatFileName(file.name)}</a></p>
                 <p class="duration"></p>
             </div>
             <button class="play-button" data-url="${file.download_url}">►</button>
