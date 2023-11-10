@@ -3,15 +3,6 @@ const searchInput = document.getElementById('search-input');
 const fileListContainer = document.getElementById('file-list');
 const urlParams = new URLSearchParams(window.location.search);
 
-// favorites.js
-
-const favoritesList = document.getElementById('favorites-list');
-const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
-
-// Create a map of favorite file names for faster lookup
-const favoriteFileNames = new Set(favorites.map(file => file.name));
-
-
 // Obtener el término de búsqueda de los parámetros de la URL
 const searchTermFromURL = urlParams.get('search');
 if (searchTermFromURL) {
@@ -26,15 +17,17 @@ function createElementFromHTML(htmlString) {
     return div.firstChild;
 }
 
+// Definir favoriteFileNames aquí para que esté disponible en todo el archivo script.js
+const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+const favoriteFileNames = new Set(favorites.map(file => file.name));
+
 searchForm.addEventListener('submit', function (e) {
     e.preventDefault();
     const searchTerm = searchInput.value.toLowerCase();
-    
-     fetchMidiFiles(searchTerm);
-
-     // Actualizar la URL con el parámetro de búsqueda
+    fetchMidiFiles(searchTerm, favoriteFileNames);
+    // Actualizar la URL con el parámetro de búsqueda
     urlParams.set('search', searchTerm);
-    history.pushState(null, '', `?search=${encodeURIComponent(searchTerm)}`);
+     history.pushState(null, '', `?search=${encodeURIComponent(searchTerm)}`);
 });
 
 async function fetchMidiFiles(searchTerm = '') {
@@ -43,18 +36,21 @@ async function fetchMidiFiles(searchTerm = '') {
         const data = await response.json();
 
         const midiFiles = data.filter(item => item.name.endsWith('.mid'));
+        const favoriteFileNames = new Set(favorites.map(file => file.name)); // Create favoriteFileNames here
 
         // Filtrar por término de búsqueda si se proporciona
         if (searchTerm) {
             const filteredFiles = midiFiles.filter(file => file.name.toLowerCase().includes(searchTerm));
-            displayFileList(filteredFiles);
+            displayFileList(filteredFiles, favoriteFileNames); // Pass favoriteFileNames here
         } else {
-            displayFileList(midiFiles);
+            displayFileList(midiFiles, favoriteFileNames); // Pass favoriteFileNames here
         }
     } catch (error) {
-        console.warn('Failed to load duration of midi:', file.name, ' - ', error);
+        console.error('Error fetching MIDI files:', error);
     }
 }
+
+
 
 function formatFileName(name) {
     // Reemplazar "_" y "-" por " " (espacio)
@@ -64,30 +60,34 @@ function formatFileName(name) {
     return formattedName.replace(/\s+/g, ' ');
 }
 
-function displayFileList(files) {
+async function displayFileList(files) {
     fileListContainer.innerHTML = '';
 
     if (files.length === 0) {
         fileListContainer.innerHTML = '<p>No results found.</p>';
         return;
     }
-    
+
     const durationPromises = files.map(async file => {
         if (favoriteFileNames.has(file.name)) {
         const listItem = document.createElement('li');
         const isFavorite = favoriteFileNames.has(file.name);
-    
+
         listItem.innerHTML = `
             <div class="divmidiinfo">
-                <p class="midiname">${formatFileName(file.name)}</p>
+                <p class="midiname"><a href="/developmentsite/midi?m=${file.name}" style="color: inherit; text-decoration: none;">${formatFileName(file.name)}</a></p>
                 <p class="duration"></p>
             </div>
+            <button class="play-button" data-url="${file.download_url}">►</button>
+            <div class="PlayMusicPos"></div>
             <button class="copy-button" data-url="${file.download_url}">Copy Midi Data</button>
             <button class="${isFavorite ? 'remove-favorite-button' : 'favorite-button'}" data-file='${JSON.stringify(file)}'>
                 ${isFavorite ? 'Unfavorite' : 'Favorite'}
-                </button>
-                <button class="play-button" data-url="${file.download_url}">Play</button>
-                <button class="stop-button" style="display: none">Stop</button>
+            </button>
+
+            <!--
+            <button class="stop-button" style="display: none">Stop</button>
+            -->
             `;
 
         fileListContainer.appendChild(listItem);
@@ -136,21 +136,24 @@ function displayFileList(files) {
     });
     
     const playButtons = document.querySelectorAll('.play-button');
-    const stopButtons = document.querySelectorAll('.stop-button');
+    //const stopButtons = document.querySelectorAll('.stop-button');
 
     playButtons.forEach((playButton, index) => {
         playButton.addEventListener('click', async function () {
             const url = this.getAttribute('data-url');
-            const midiplayer = createElementFromHTML('<midi-player sound-font visualizer="#myVisualizer"></midi-player>');
+            const midiplayer = createElementFromHTML('<midi-player class="Midi-player" sound-font visualizer="#myVisualizer"></midi-player>');
             midiplayer.setAttribute("src",url);
-            midiplayer.style.display = 'none';
+            //midiplayer.style.display = 'none';
             //midiplayer.setAttribute("sound-font visualizer","#section3 midi-visualizer");
-            playButton.parentElement.appendChild(midiplayer);
-            playButton.textContent = "Loading"
-            playButton.classList.add('play-button-loading');
+            playButton.parentElement.getElementsByClassName("PlayMusicPos")[0].appendChild(midiplayer);
+            playButton.remove()
+
+            //playButton.textContent = "Loading"
+            //playButton.classList.add('play-button-loading');
             
             midiplayer.addEventListener('load', () => {
                 midiplayer.start();
+                            /*
                 playButton.textContent = "Play"
                 playButton.classList.remove('play-button-loading');
                 stopButtons.forEach(stopButton => {
@@ -182,14 +185,11 @@ function displayFileList(files) {
                     // Esconder el botón "Stop" correspondiente
                     stopButtons[index].style.display = 'none';
         
-                });
+                });*/
             });
-            });
-
-
-        });
+        });            
+    });
     
-
     const favoriteButtons = document.querySelectorAll('.favorite-button');
     favoriteButtons.forEach(button => {
         button.addEventListener('click', function () {
@@ -208,7 +208,7 @@ function displayFileList(files) {
                 this.classList.remove('favorite-button');
                 this.classList.add('remove-favorite-button');
             }
-    
+
             localStorage.setItem('favorites', JSON.stringify(favorites));
         });
     });
@@ -231,7 +231,7 @@ function displayFileList(files) {
                 this.classList.remove('favorite-button');
                 this.classList.add('remove-favorite-button');
             }
-    
+
             localStorage.setItem('favorites', JSON.stringify(favorites));
         });
     });
@@ -245,6 +245,27 @@ function copyToClipboard(text) {
     document.execCommand('copy');
     document.body.removeChild(tempInput);
 }
+
+const favoriteButtons = document.querySelectorAll('.favorite-button');
+favoriteButtons.forEach(button => {
+    button.addEventListener('click', function () {
+        const fileData = JSON.parse(this.getAttribute('data-file'));
+        const favorites = JSON.parse(localStorage.getItem('favorites')) || [];
+
+        const existingIndex = favorites.findIndex(favorite => favorite.name === fileData.name);
+        if (existingIndex !== -1) {
+            // Already a favorite, remove it
+            favorites.splice(existingIndex, 1);
+            this.textContent = 'Favorite';
+        } else {
+            // Not a favorite, add it
+            favorites.push(fileData);
+            this.textContent = 'Unfavorite';
+        }
+
+        localStorage.setItem('favorites', JSON.stringify(favorites));
+    });
+});
 
 // Llamar a la función para obtener y mostrar la lista de archivos MIDI
 const searchTerm = urlParams.get('search');
